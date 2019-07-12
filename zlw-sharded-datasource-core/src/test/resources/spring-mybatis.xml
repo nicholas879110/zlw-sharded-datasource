@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:p="http://www.springframework.org/schema/p" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+	                       http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+                           http://www.springframework.org/schema/aop 
+                           http://www.springframework.org/schema/aop/spring-aop-4.0.xsd
+                           http://www.springframework.org/schema/tx
+                           http://www.springframework.org/schema/tx/spring-tx-4.0.xsd
+                           http://www.springframework.org/schema/context
+                           http://www.springframework.org/schema/context/spring-context-4.0.xsd
+                           ">
+	<!-- 自动扫描 -->
+	<context:component-scan base-package="com.cn.hnust" />
+	<!-- 引入配置文件 -->
+	<bean id="propertyConfigurer"
+		class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+		<property name="location" value="classpath:jdbc.properties" />
+	</bean>
+
+	<bean id="dataSource" class="com.zlw.datasource.shard.DruidDataSourceExt"
+		destroy-method="close">
+		<property name="driverClassName" value="${driver}" />
+		<property name="url" value="${url}" />
+		<property name="username" value="${username0}" />
+		<property name="password" value="${password0}" />
+		<!-- 初始化连接大小 -->
+		<property name="initialSize" value="${initialSize}"></property>
+		<!-- 连接池最大数量 -->
+		<property name="maxActive" value="${maxActive}"></property>
+		<!-- 连接池最大空闲 -->
+		<property name="maxIdle" value="${maxIdle}"></property>
+		<!-- 连接池最小空闲 -->
+		<property name="minIdle" value="${minIdle}"></property>
+		<!-- 获取连接最大等待时间 -->
+		<property name="maxWait" value="${maxWait}"></property>
+	</bean>
+
+	<bean id="dataSourceSlave1" class="org.apache.commons.dbcp.BasicDataSource"
+		destroy-method="close">
+		<property name="driverClassName" value="${driver}" />
+		<property name="url" value="${url1}" />
+		<property name="username" value="${username}" />
+		<property name="password" value="${password}" />
+		<!-- 初始化连接大小 -->
+		<property name="initialSize" value="${initialSize}"></property>
+		<!-- 连接池最大数量 -->
+		<property name="maxActive" value="${maxActive}"></property>
+		<!-- 连接池最大空闲 -->
+		<property name="maxIdle" value="${maxIdle}"></property>
+		<!-- 连接池最小空闲 -->
+		<property name="minIdle" value="${minIdle}"></property>
+		<!-- 获取连接最大等待时间 -->
+		<property name="maxWait" value="${maxWait}"></property>
+		
+		<!-- 每次获取连接时验证连接有效性，对性能有影响 -->
+		<property name="validationQuery" value="select 'x'"  />
+		<property name="testOnBorrow" value="${testOnBorrow}"></property>
+		<property name="testOnReturn" value="${testOnReturn}"></property>
+	</bean>
+	
+	<bean id="dataSourceSlave2" class="org.apache.commons.dbcp.BasicDataSource"
+		destroy-method="close">
+		<property name="driverClassName" value="${driver}" />
+		<property name="url" value="${url2}" />
+		<property name="username" value="${username2}" />
+		<property name="password" value="${password2}" />
+		<!-- 初始化连接大小 -->
+		<property name="initialSize" value="${initialSize}"></property>
+		<!-- 连接池最大数量 -->
+		<property name="maxActive" value="${maxActive}"></property>
+		<!-- 连接池最大空闲 -->
+		<property name="maxIdle" value="${maxIdle}"></property>
+		<!-- 连接池最小空闲 -->
+		<property name="minIdle" value="${minIdle}"></property>
+		<!-- 获取连接最大等待时间 -->
+		<property name="maxWait" value="${maxWait}"></property>
+		
+		<!-- 每次获取连接时验证连接有效性，对性能有影响 -->
+		<property name="validationQuery" value="select 'x'"  />
+		<property name="testOnBorrow" value="${testOnBorrow}"></property>
+		<property name="testOnReturn" value="${testOnReturn}"></property>
+		
+		
+		
+	</bean>
+
+	<bean id="shardDatasource" class="com.zlw.datasource.shard.ShardDataSource">
+		<constructor-arg name="defaultTargetDataSource"  ref="dataSource"/><!-- default datasource -->
+		<constructor-arg name="master"  ref="dataSource"/>
+		<constructor-arg name="slaveDataSources"  type="java.util.Set">
+			<set>
+				<bean class="com.zlw.datasource.shard.SlaveConfig">
+					<constructor-arg index="0"		value="slave1" /><!-- name -->
+					<constructor-arg index="1"  	value="5" /><!-- weight -->
+					<constructor-arg index="2"		ref="dataSourceSlave1" /><!-- datasource -->
+					<constructor-arg index="3"		value="3000" /><!-- interval ,check datasource interval -->
+				</bean>
+				<bean class="com.zlw.datasource.shard.SlaveConfig">
+					<constructor-arg index="0"		value="slave2" /><!-- name -->
+					<constructor-arg index="1"  	value="5" /><!-- weight -->
+					<constructor-arg index="2"		ref="dataSourceSlave2" /><!-- datasource -->
+					<constructor-arg index="3"		value="3000" /><!-- interval ,check datasource interval ,default 5000 ms-->
+				</bean>
+				<!-- 
+				<bean class="com.zlw.datasource.shard.DatasourceConfig">
+					<constructor-arg index="0"		ref="masterdataSource" />
+					<constructor-arg index="1"  	ref="masterdataSource" />
+					<constructor-arg index="2"		ref="masterdataSource" />
+				</bean>
+				 -->
+			</set>
+		</constructor-arg>
+	</bean>
+
+	<!-- spring和MyBatis完美整合，不需要mybatis的配置映射文件 -->
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="dataSource" ref="shardDatasource" />
+		<!-- 自动扫描mapping.xml文件 -->
+		<property name="mapperLocations" value="classpath:com/cn/hnust/mapping/*.xml"></property>
+	</bean>
+
+	<!-- DAO接口所在包名，Spring会自动查找其下的类 -->
+	<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+		<property name="basePackage" value="com.cn.hnust.dao" />
+		<property name="sqlSessionFactoryBeanName" value="sqlSessionFactory"></property>
+	</bean>
+
+	<!-- (事务管理)transaction manager, use JtaTransactionManager for global tx -->
+	<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="shardDatasource" />
+	</bean>
+	
+	
+	<aop:aspectj-autoproxy  proxy-target-class="true"/>  
+	<bean id="shardDataSourceAspect" class="com.zlw.datasource.shard.ShardDataSourceAspect" />
+	<aop:config>  
+	    <aop:aspect id="c" ref="shardDataSourceAspect" >  
+	        <aop:pointcut id="tx" expression="execution(* com.cn.hnust.service..*.*(..))"/>  
+	        <aop:before pointcut-ref="tx" method="before"/>  
+	    </aop:aspect>  
+	</aop:config>  
+
+</beans>
